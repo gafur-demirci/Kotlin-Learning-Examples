@@ -137,8 +137,24 @@ private fun calculateTip(
 
 @SuppressLint("UnrememberedMutableState")
 @Composable
-fun GreetingPreview() {
-    TipTimeTheme {
-        Greeting("Android")
-    }
+fun EditNumberField(
+    @StringRes label: Int, value: String,
+    @DrawableRes leadingIcon: Int,
+    onValueChange: (String) -> Unit,
+    keyboardOptions: KeyboardOptions,
+    modifier: Modifier = Modifier
+) {
+    val amountInput by remember { mutableStateOf("") }
+    val amount = amountInput.toDoubleOrNull() ?: 0.0
+    //val tip = calculateTip(amount)
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        label = { Text(stringResource(label)) },
+        leadingIcon = { Icon(painter = painterResource(id = leadingIcon), null) },
+        singleLine = true,
+        //keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        keyboardOptions = keyboardOptions
+    )
 }
