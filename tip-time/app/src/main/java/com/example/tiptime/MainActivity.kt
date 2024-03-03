@@ -60,11 +60,67 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+fun TipTimeLayout() {
+    var amountInput by remember { mutableStateOf("") }
+    var tipInput by remember { mutableStateOf("") }
+    var roundUp by remember { mutableStateOf(false) }
+
+    val amount = amountInput.toDoubleOrNull() ?: 0.0
+    val tipPercent = tipInput.toDoubleOrNull() ?: 0.0
+
+    val tip = calculateTip(amount, tipPercent, roundUp)
+    Column(
+        modifier = Modifier
+            .statusBarsPadding()
+            .padding(horizontal = 40.dp)
+            .verticalScroll(rememberScrollState())
+            .safeDrawingPadding(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = stringResource(R.string.calculate_tip),
+            modifier = Modifier
+                .padding(bottom = 16.dp, top = 40.dp)
+                .align(alignment = Alignment.Start)
+        )
+        EditNumberField(
+            label = R.string.bill_amount,
+            value = amountInput,
+            onValueChange = { amountInput = it },
+            keyboardOptions = KeyboardOptions.Default.copy(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Next
+            ),
+            leadingIcon = R.drawable.money,
+            modifier = Modifier
+                .padding(bottom = 32.dp)
+                .fillMaxWidth()
+        )
+        EditNumberField(
+            label = R.string.how_was_the_service,
+            value = tipInput,
+            onValueChange = { tipInput = it },
+            keyboardOptions = KeyboardOptions.Default.copy(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
+            leadingIcon = R.drawable.percent,
+            modifier = Modifier
+                .padding(bottom = 32.dp)
+                .fillMaxWidth()
+        )
+        RoundTheTipRow(
+            roundUp = roundUp,
+            onRoundUpChanged = { roundUp = it },
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+        Text(
+            text = stringResource(R.string.tip_amount, tip),
+            style = MaterialTheme.typography.displaySmall
+        )
+        Spacer(modifier = Modifier.height(150.dp))
+    }
 }
 
 @Preview(showBackground = true)
