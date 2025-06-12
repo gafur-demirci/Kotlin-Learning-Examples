@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Secret Diaries</string>
+    <string name="editText">Select a Date</string>
+    <string name="title_activity_note_detail">NoteDetail</string>
+    <string name="title_activity_add_note">AddNote</string>
+</resources>
