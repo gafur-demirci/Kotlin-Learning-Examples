@@ -17,6 +17,11 @@ import io.reactivex.Scheduler
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -30,6 +35,7 @@ class MainActivity : AppCompatActivity(), RecyclerAdapter.Listener {
     private var cryptos: ArrayList<Currency>? = null
     private var adapter: RecyclerAdapter? = null
     private var compositeDispossible: CompositeDisposable? = null
+    private var job: Job? = null
 
     private lateinit var binding: ActivityMainBinding
 
@@ -63,58 +69,20 @@ class MainActivity : AppCompatActivity(), RecyclerAdapter.Listener {
             .build()
             .create(ICryptoAPI::class.java)
 
-        compositeDispossible?.add(
-            retrofit.getData()
-                .subscribeOn(Schedulers.io()) // Veri alırken işlemin arka planda yapılmasını belirtir.
-                .observeOn(AndroidSchedulers.mainThread()) // Veriyi main thread'de işleyeceğimizi belitiyoruz.
-                .subscribe(this::handleResponse)
-        )
+        job = CoroutineScope(Dispatchers.IO).launch {
+            val response = retrofit.getData()
 
-        /*
-        val service = retrofit.create(ICryptoAPI::class.java)
-        val call = service.getData()
-
-        call.enqueue(object : Callback<List<Currency>> {
-            override fun onResponse(
-                call: Call<List<Currency>>,
-                response: Response<List<Currency>>
-            ) {
-                if(response.isSuccessful) {
-                    response.body()?.let { it ->
+            withContext(Dispatchers.Main) {
+                if (response.isSuccessful) {
+                    response.body()?.let {
                         cryptos = ArrayList(it)
-
                         cryptos?.let {
                             adapter = RecyclerAdapter(it, this@MainActivity)
                             binding.recyclerView.adapter = adapter
                         }
-
-                        for (crypto : Currency in cryptos!!) {
-                            println(crypto.currency)
-                            println(crypto.price)
-                        }
                     }
                 }
             }
-
-            override fun onFailure(call: Call<List<Currency>>, t: Throwable) {
-                t.printStackTrace()
-            }
-
-        })
-        */
-    }
-
-    private fun handleResponse(cryptoList: List<Currency>) {
-        cryptos = ArrayList(cryptoList)
-
-        cryptos?.let {
-            adapter = RecyclerAdapter(it, this@MainActivity)
-            binding.recyclerView.adapter = adapter
-        }
-
-        for (crypto : Currency in cryptos!!) {
-            println(crypto.currency)
-            println(crypto.price)
         }
     }
 
@@ -124,6 +92,6 @@ class MainActivity : AppCompatActivity(), RecyclerAdapter.Listener {
 
     override fun onDestroy() {
         super.onDestroy()
-        compositeDispossible?.clear()
+        job?.cancel()
     }
 }
