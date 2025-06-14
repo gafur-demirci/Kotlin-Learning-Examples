@@ -33,6 +33,10 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+
+    buildFeatures {
+        viewBinding = true
+    }
 }
 
 dependencies {
@@ -45,4 +49,13 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    implementation(libs.adapter.rxjava2)
+
+    implementation(libs.rxjava)
+    implementation(libs.rxandroid)
+    implementation(libs.androidx.recyclerview)
+
 }
