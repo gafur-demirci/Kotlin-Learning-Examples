@@ -57,5 +57,6 @@ dependencies {
     implementation(libs.rxjava)
     implementation(libs.rxandroid)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.kotlinx.coroutines.android)
 
 }
