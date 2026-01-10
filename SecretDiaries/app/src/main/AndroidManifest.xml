@@ -23,7 +23,7 @@
             android:label="@string/title_activity_note_detail"
             android:theme="@style/Theme.SecretDiaries" />
         <activity
-            android:name=".views.MainActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.SecretDiaries">
             <intent-filter>

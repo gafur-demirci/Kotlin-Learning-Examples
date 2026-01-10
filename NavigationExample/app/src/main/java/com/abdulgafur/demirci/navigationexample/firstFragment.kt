@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import androidx.fragment.app.Fragment
 
 // TODO: Rename parameter arguments, choose names that match
@@ -42,10 +43,15 @@ class firstFragment : Fragment() {
 
         
         val action = firstFragmentDirections.firstToSecond()
+        val firstButton = view.findViewById<Button>(R.id.button1)
+        firstButton.setOnClickListener {
+            goToSecond(view)
+        }
 
 
     }
 
+    fun goToSecond(view: View) {}
 
 
 //    companion object {
