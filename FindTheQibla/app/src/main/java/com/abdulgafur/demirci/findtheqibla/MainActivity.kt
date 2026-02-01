@@ -42,6 +42,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     private var gravity = FloatArray(3)
     private var geomagnetic = FloatArray(3)
+    private var hasGravity = false
+    private var hasGeomagnetic = false
 
     private val _azimuth = mutableFloatStateOf(0f)
     private val _qiblaDirection = mutableFloatStateOf(0f)
@@ -91,13 +93,15 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         if (event == null) return
 
         if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-            gravity = event.values
+            gravity = event.values.clone() // clone() kullanmak verinin değişmesini önler
+            hasGravity = true
         }
         if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
-            geomagnetic = event.values
+            geomagnetic = event.values.clone()
+            hasGeomagnetic = true
         }
 
-        if (gravity.isNotEmpty() && geomagnetic.isNotEmpty()) {
+        if (hasGravity && hasGeomagnetic) {
             val r = FloatArray(9)
             val i = FloatArray(9)
             if (SensorManager.getRotationMatrix(r, i, gravity, geomagnetic)) {
