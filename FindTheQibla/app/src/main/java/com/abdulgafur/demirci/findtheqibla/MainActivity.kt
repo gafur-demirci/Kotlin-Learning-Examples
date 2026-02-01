@@ -1,7 +1,7 @@
 package com.abdulgafur.demirci.findtheqibla
 
 import android.Manifest
-import android.content.Context
+import android.annotation.SuppressLint
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -30,22 +30,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.abdulgafur.demirci.findtheqibla.ui.theme.FindTheQiblaTheme
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlin.math.*
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
-    private var rotationSensor: Sensor? = null
-    
+    private var accelerometer: Sensor? = null
+    private var magnetometer: Sensor? = null
+
+    private var gravity = FloatArray(3)
+    private var geomagnetic = FloatArray(3)
+
     private val _azimuth = mutableFloatStateOf(0f)
     private val _qiblaDirection = mutableFloatStateOf(0f)
     private val _userLocation = mutableStateOf<Location?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
         enableEdgeToEdge()
         setContent {
@@ -65,18 +72,26 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun fetchLocation() {
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        try {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    _userLocation.value = location
-                    _qiblaDirection.floatValue = calculateQiblaDirection(location.latitude, location.longitude)
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                updateLocationInfo(location)
+            } else {
+                fusedLocationClient.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    CancellationTokenSource().token
+                ).addOnSuccessListener { currentLocation ->
+                    currentLocation?.let { updateLocationInfo(it) }
                 }
             }
-        } catch (e: SecurityException) {
-            // Handle exception
         }
+    }
+
+    private fun updateLocationInfo(location: Location) {
+        _userLocation.value = location
+        _qiblaDirection.floatValue = calculateQiblaDirection(location.latitude, location.longitude)
     }
 
     private fun calculateQiblaDirection(lat: Double, lon: Double): Float {
@@ -84,21 +99,20 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         val kaabaLon = Math.toRadians(39.826206)
         val userLat = Math.toRadians(lat)
         val userLon = Math.toRadians(lon)
-
         val deltaLon = kaabaLon - userLon
-
         val y = sin(deltaLon)
         val x = cos(userLat) * tan(kaabaLat) - sin(userLat) * cos(deltaLon)
-        
         var qiblaDegree = Math.toDegrees(atan2(y, x)).toFloat()
         if (qiblaDegree < 0) qiblaDegree += 360f
-        
         return qiblaDegree
     }
 
     override fun onResume() {
         super.onResume()
-        rotationSensor?.let {
+        accelerometer?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
+        magnetometer?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
         }
     }
@@ -109,17 +123,25 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
-            val rotationMatrix = FloatArray(9)
-            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-            val orientation = FloatArray(3)
-            SensorManager.getOrientation(rotationMatrix, orientation)
-            
-            val azimuthInRadians = orientation[0]
-            var azimuthInDegrees = Math.toDegrees(azimuthInRadians.toDouble()).toFloat()
-            if (azimuthInDegrees < 0) azimuthInDegrees += 360f
-            
-            _azimuth.floatValue = azimuthInDegrees
+        if (event == null) return
+
+        if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+            gravity = event.values
+        }
+        if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
+            geomagnetic = event.values
+        }
+
+        if (gravity.isNotEmpty() && geomagnetic.isNotEmpty()) {
+            val r = FloatArray(9)
+            val i = FloatArray(9)
+            if (SensorManager.getRotationMatrix(r, i, gravity, geomagnetic)) {
+                val orientation = FloatArray(3)
+                SensorManager.getOrientation(r, orientation)
+                var azimuthInDegrees = Math.toDegrees(orientation[0].toDouble()).toFloat()
+                if (azimuthInDegrees < 0) azimuthInDegrees += 360f
+                _azimuth.floatValue = azimuthInDegrees
+            }
         }
     }
 
@@ -185,6 +207,12 @@ fun QiblaScreen(
                         fontSize = 20.sp,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
+                    Text(
+                        text = "Lat: ${String.format("%.4f", userLocation.latitude)}, Lon: ${String.format("%.4f", userLocation.longitude)}",
+                        modifier = Modifier.padding(16.dp),
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 }
             }
         }
@@ -195,7 +223,7 @@ fun QiblaScreen(
 fun CompassView(azimuth: Float, qiblaDirection: Float) {
     val animatedAzimuth by animateFloatAsState(targetValue = -azimuth, label = "azimuth")
     val qiblaRotation = qiblaDirection + animatedAzimuth
-    
+
     val textMeasurer = rememberTextMeasurer()
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -206,7 +234,6 @@ fun CompassView(azimuth: Float, qiblaDirection: Float) {
             val center = Offset(size.width / 2, size.height / 2)
             val radius = size.minDimension / 2
 
-            // Draw Compass Circle
             drawCircle(
                 color = outlineColor,
                 radius = radius,
@@ -214,18 +241,17 @@ fun CompassView(azimuth: Float, qiblaDirection: Float) {
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
             )
 
-            // Draw Degree Marks, Numbers and Directions
             rotate(degrees = animatedAzimuth, pivot = center) {
                 for (i in 0 until 360 step 10) {
                     val angle = Math.toRadians(i.toDouble())
                     val isMajor = i % 30 == 0
                     val tickLen = if (isMajor) 15.dp.toPx() else 8.dp.toPx()
-                    
+
                     val startX = center.x + radius * sin(angle).toFloat()
                     val startY = center.y - radius * cos(angle).toFloat()
                     val endX = center.x + (radius - tickLen) * sin(angle).toFloat()
                     val endY = center.y - (radius - tickLen) * cos(angle).toFloat()
-                    
+
                     drawLine(
                         color = outlineColor.copy(alpha = 0.6f),
                         start = Offset(startX, startY),
@@ -233,12 +259,11 @@ fun CompassView(azimuth: Float, qiblaDirection: Float) {
                         strokeWidth = if (isMajor) 2.dp.toPx() else 1.dp.toPx()
                     )
 
-                    // Degree Numbers every 30 degrees (except 0, 90, 180, 270 where letters are)
                     if (isMajor && i % 90 != 0) {
                         val textRadius = radius - 35.dp.toPx()
                         val tx = center.x + textRadius * sin(angle).toFloat()
                         val ty = center.y - textRadius * cos(angle).toFloat()
-                        
+
                         rotate(degrees = -animatedAzimuth - i, pivot = Offset(tx, ty)) {
                             val textLayoutResult = textMeasurer.measure(
                                 text = i.toString(),
@@ -252,13 +277,12 @@ fun CompassView(azimuth: Float, qiblaDirection: Float) {
                     }
                 }
 
-                // Direction Labels (N, E, S, W)
                 val directions = listOf("N" to 0f, "E" to 90f, "S" to 180f, "W" to 270f)
                 directions.forEach { (label, angle) ->
                     val rad = Math.toRadians(angle.toDouble())
                     val x = center.x + (radius - 35.dp.toPx()) * sin(rad).toFloat()
                     val y = center.y - (radius - 35.dp.toPx()) * cos(rad).toFloat()
-                    
+
                     rotate(degrees = -animatedAzimuth - angle, pivot = Offset(x, y)) {
                         val textLayoutResult = textMeasurer.measure(
                             text = label,
@@ -276,9 +300,7 @@ fun CompassView(azimuth: Float, qiblaDirection: Float) {
                 }
             }
 
-            // Draw Qibla Needle
             rotate(degrees = qiblaRotation, pivot = center) {
-                // Main Needle (Red pointing to Qibla)
                 val needlePath = androidx.compose.ui.graphics.Path().apply {
                     moveTo(center.x, center.y - radius + 55.dp.toPx())
                     lineTo(center.x - 14.dp.toPx(), center.y)
@@ -286,8 +308,7 @@ fun CompassView(azimuth: Float, qiblaDirection: Float) {
                     close()
                 }
                 drawPath(needlePath, Color.Red)
-                
-                // Bottom part of needle
+
                 val bottomNeedlePath = androidx.compose.ui.graphics.Path().apply {
                     moveTo(center.x, center.y + radius - 55.dp.toPx())
                     lineTo(center.x - 14.dp.toPx(), center.y)
@@ -295,8 +316,7 @@ fun CompassView(azimuth: Float, qiblaDirection: Float) {
                     close()
                 }
                 drawPath(bottomNeedlePath, onSurfaceColor.copy(alpha = 0.8f))
-                
-                // Center pin
+
                 drawCircle(color = primaryColor, radius = 6.dp.toPx(), center = center)
                 drawCircle(color = Color.White, radius = 2.dp.toPx(), center = center)
             }
