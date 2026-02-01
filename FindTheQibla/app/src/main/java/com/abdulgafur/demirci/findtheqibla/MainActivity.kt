@@ -72,41 +72,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private fun fetchLocation() {
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            if (location != null) {
-                updateLocationInfo(location)
-            } else {
-                fusedLocationClient.getCurrentLocation(
-                    Priority.PRIORITY_HIGH_ACCURACY,
-                    CancellationTokenSource().token
-                ).addOnSuccessListener { currentLocation ->
-                    currentLocation?.let { updateLocationInfo(it) }
-                }
-            }
-        }
-    }
-
-    private fun updateLocationInfo(location: Location) {
-        _userLocation.value = location
-        _qiblaDirection.floatValue = calculateQiblaDirection(location.latitude, location.longitude)
-    }
-
-    private fun calculateQiblaDirection(lat: Double, lon: Double): Float {
-        val kaabaLat = Math.toRadians(21.422487)
-        val kaabaLon = Math.toRadians(39.826206)
-        val userLat = Math.toRadians(lat)
-        val userLon = Math.toRadians(lon)
-        val deltaLon = kaabaLon - userLon
-        val y = sin(deltaLon)
-        val x = cos(userLat) * tan(kaabaLat) - sin(userLat) * cos(deltaLon)
-        var qiblaDegree = Math.toDegrees(atan2(y, x)).toFloat()
-        if (qiblaDegree < 0) qiblaDegree += 360f
-        return qiblaDegree
-    }
-
     override fun onResume() {
         super.onResume()
         accelerometer?.let {
@@ -146,6 +111,41 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
+    @SuppressLint("MissingPermission")
+    private fun fetchLocation() {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                updateLocationInfo(location)
+            } else {
+                fusedLocationClient.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    CancellationTokenSource().token
+                ).addOnSuccessListener { currentLocation ->
+                    currentLocation?.let { updateLocationInfo(it) }
+                }
+            }
+        }
+    }
+
+    private fun updateLocationInfo(location: Location) {
+        _userLocation.value = location
+        _qiblaDirection.floatValue = calculateQiblaDirection(location.latitude, location.longitude)
+    }
+
+    private fun calculateQiblaDirection(lat: Double, lon: Double): Float {
+        val kaabaLat = Math.toRadians(21.422487)
+        val kaabaLon = Math.toRadians(39.826206)
+        val userLat = Math.toRadians(lat)
+        val userLon = Math.toRadians(lon)
+        val deltaLon = kaabaLon - userLon
+        val y = sin(deltaLon)
+        val x = cos(userLat) * tan(kaabaLat) - sin(userLat) * cos(deltaLon)
+        var qiblaDegree = Math.toDegrees(atan2(y, x)).toFloat()
+        if (qiblaDegree < 0) qiblaDegree += 360f
+        return qiblaDegree
+    }
 }
 
 @Composable
