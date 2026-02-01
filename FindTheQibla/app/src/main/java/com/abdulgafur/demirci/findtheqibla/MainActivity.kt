@@ -148,6 +148,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     }
 }
 
+@SuppressLint("DefaultLocale")
 @Composable
 fun QiblaScreen(
     azimuth: Float,
